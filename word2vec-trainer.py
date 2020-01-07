@@ -7,6 +7,7 @@ import argparse
 import jieba
 import os
 import warnings
+import multiprocessing
 from gensim.models import word2vec
 warnings.filterwarnings(action='ignore', category=UserWarning, module='gensim')
 
@@ -45,17 +46,8 @@ def tokenize_by_char(path_src, path_des):
     return path_des
 
 
-def train(args):
-    if not os.path.isfile(args.input_file):
-        raise FileNotFoundError
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
-    input_file = args.input_file
-    if args.raw_file:
-        if args.tokenize_level == 'word':
-            input_file = tokenize_by_word(args.input_file, args.output_dir, workers=args.workers)
-        else:
-            input_file = tokenize_by_char(args.input_file, args.output_dir)
+def train_embedding(input_file, args, token_level=None):
+    start = time.time()
     sentences = word2vec.Text8Corpus(input_file)
     model = word2vec.Word2Vec(
         sentences,
@@ -69,9 +61,46 @@ def train(args):
         seed=args.seed,
         sample=args.sample
     )
-    filepath = os.path.join(args.output_dir, '{}_{}d'.format(args.filename, args.size))
+    if token_level is not None:
+        filepath = os.path.join(args.output_dir, '{}_{}_{}d'.format(args.filename, token_level, args.size))
+    else:
+        filepath = os.path.join(args.output_dir, '{}_{}d'.format(args.filename, args.size))
     model.save(filepath + '.model')
     model.wv.save_word2vec_format(filepath + '.txt', binary=False)
+    end = time.time()
+    print('train embedding costs {}'.format(as_time(end-start)))
+
+
+def run(args, token_level):
+    input_file = args.input_file
+    if token_level == 'word':
+        input_file = tokenize_by_word(args.input_file, args.output_dir, workers=args.workers)
+    elif token_level == 'char':
+        input_file = tokenize_by_char(args.input_file, args.output_dir)
+
+    train_embedding(input_file, args, token_level=token_level)
+
+
+def train(args):
+    if not os.path.isfile(args.input_file):
+        raise FileNotFoundError
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
+
+    if args.raw_file:
+        if args.tokenize_level == 'word':
+            run(args, 'word')
+        elif args.tokenize_level == 'char':
+            run(args, 'char')
+        else:
+            t1 = multiprocessing.Process(target=run, args=(args, 'word'))
+            t2 = multiprocessing.Process(target=run, args=(args, 'char'))
+            t1.start()
+            t2.start()
+            t1.join()
+            t2.join()
+    else:
+        run(args, None)
 
 
 if __name__ == '__main__':
@@ -87,7 +116,7 @@ if __name__ == '__main__':
     parser.add_argument('--raw_file', action='store_true', default=False,
                         help='if False, text need to word/char tokenization')
     parser.add_argument('--tokenize_level', type=str, default='word',
-                        choices=['char', 'word'],
+                        choices=['char', 'word', 'all'],
                         help='tokenize level if need to tokenize')
 
     parser.add_argument('--size', type=int, default=50,
