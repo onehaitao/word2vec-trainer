@@ -68,7 +68,11 @@ def train_embedding(input_file, args, token_level=None):
     model.save(filepath + '.model')
     model.wv.save_word2vec_format(filepath + '.txt', binary=False)
     end = time.time()
-    print('train embedding costs {}'.format(as_time(end-start)))
+    if token_level is None:
+        info_str = 'train embedding costs {}'.format(as_time(end-start))
+    else:
+        info_str = 'train {}-level embedding costs {}'.format(token_level, as_time(end-start))
+    print(info_str)
 
 
 def run(args, token_level):
@@ -106,6 +110,7 @@ def train(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.description = 'a simple tool to train word vectors'
+
     parser.add_argument('input_file', type=str,
                         help='path of input file')
 
@@ -143,3 +148,5 @@ if __name__ == '__main__':
                         help='threshold for configuring which higher-frequency words are \
                               randomly downsampled, useful range is (0, 1e-5)')
     args = parser.parse_args()
+
+    train(args)
