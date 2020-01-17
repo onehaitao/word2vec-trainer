@@ -39,7 +39,7 @@ def tokenize_by_char(path_src, path_des):
     with open(path_src, 'r', encoding='utf-8') as fr:
         for line in fr:
             tokens = list(line.strip())
-            fw.write('{}\n'.format(''.join(tokens)))
+            fw.write('{}\n'.format(' '.join(tokens)))
     fw.close()
     end = time.time()
     print('char-tokenization costs {}'.format(as_time(end-start)))
@@ -59,7 +59,7 @@ def train_embedding(input_file, args, token_level=None):
         hs=args.hs,
         negative=args.negative,
         seed=args.seed,
-        sample=args.sample
+        sample=args.sample,
     )
     if token_level is not None:
         filepath = os.path.join(args.output_dir, '{}_{}_{}d'.format(args.filename, token_level, args.size))
@@ -97,12 +97,12 @@ def train(args):
         elif args.tokenize_level == 'char':
             run(args, 'char')
         else:
-            t1 = multiprocessing.Process(target=run, args=(args, 'word'))
-            t2 = multiprocessing.Process(target=run, args=(args, 'char'))
-            t1.start()
-            t2.start()
-            t1.join()
-            t2.join()
+            p1 = multiprocessing.Process(target=run, args=(args, 'word'))
+            p2 = multiprocessing.Process(target=run, args=(args, 'char'))
+            p1.start()
+            p2.start()
+            p1.join()
+            p2.join()
     else:
         run(args, None)
 
@@ -114,9 +114,9 @@ if __name__ == '__main__':
     parser.add_argument('input_file', type=str,
                         help='path of input file')
 
-    parser.add_argument('--output_dir', type=str, default='word2vec',
-                        help='filename of ')
-    parser.add_argument('--filename', type=str, default='./output',
+    parser.add_argument('--output_dir', type=str, default='./output',
+                        help='filename of output dir')
+    parser.add_argument('--filename', type=str, default='word2vec',
                         help='name of target files')
     parser.add_argument('--raw_file', action='store_true', default=False,
                         help='if False, text need to word/char tokenization')
@@ -139,14 +139,15 @@ if __name__ == '__main__':
                         choices=[0, 1],
                         help='if 1, hierarchical softmax will be used for model training. \
                               if 0, and negative is non-zero, negative sampling will be used.')
-    parser.add_argument('--negative ', type=int, default=5,
+    parser.add_argument('--negative', type=int, default=5,
                         help='if > 0, negative sampling will be used. \
                               if set to 0, no negative sampling is used.')
-    parser.add_argument('--seed ', type=int, default=1,
+    parser.add_argument('--seed', type=int, default=1,
                         help='seed for the random number generator.')
     parser.add_argument('--sample', type=float, default=1e-3,
                         help='threshold for configuring which higher-frequency words are \
                               randomly downsampled, useful range is (0, 1e-5)')
     args = parser.parse_args()
 
+    print(args)
     train(args)
